@@ -1,4 +1,4 @@
-# YoureDangerous
+# ChestLock
 
 A Spigot / PaperMC plugin that allows players to lock their own chests, making other players
 unable to open or destroy them.
