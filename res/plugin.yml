@@ -1,4 +1,7 @@
-main: me.mattiamari.chestlock.ChestLock
 name: ChestLock
 version: 1.1.0
+author: hello@mattiamari.me
+website: https://github.com/mattiamari/chestlock
 api-version: 1.15
+description: Make chests lockable
+main: me.mattiamari.chestlock.ChestLock

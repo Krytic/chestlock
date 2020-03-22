@@ -9,8 +9,7 @@
   <version>1.1.0</version>
 
   <name>chestlock</name>
-  <!-- FIXME change it to the project's website -->
-  <url>https://mattiamari.me/project/papermc-chestlock</url>
+  <url>https://github.com/mattiamari/chestlock</url>
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -26,13 +25,6 @@
   </repositories>
 
   <dependencies>
-    <dependency>
-      <groupId>junit</groupId>
-      <artifactId>junit</artifactId>
-      <version>4.11</version>
-      <scope>test</scope>
-    </dependency>
-
     <dependency>
       <groupId>org.spigotmc</groupId>
       <artifactId>spigot-api</artifactId>
