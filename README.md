@@ -11,7 +11,7 @@ and copy it to your ```plugins``` directory.
 
 ## Usage
 Left click on any chest with a wooden stick in hand to lock and unlock the chest.
-You can allow more players to open the chest by writing their nicknames on a sign, one on its own line.
+You can allow more players to open the chest by writing their nicknames on a sign, each one on its own line.
 The sign must be attached to the front of the chest.
 
 Double chests are supported and work the same way. They also allow two signs to be placed on them.
