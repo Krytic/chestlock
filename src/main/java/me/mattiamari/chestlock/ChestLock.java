@@ -1,243 +1,58 @@
 package me.mattiamari.chestlock;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
+import java.util.Optional;
 
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
 import org.bukkit.block.Chest;
-import org.bukkit.block.DoubleChest;
-import org.bukkit.entity.Player;
-import org.bukkit.event.EventHandler;
-import org.bukkit.event.Listener;
-import org.bukkit.event.block.Action;
-import org.bukkit.event.block.BlockBreakEvent;
-import org.bukkit.event.block.BlockPlaceEvent;
-import org.bukkit.event.entity.EntityExplodeEvent;
-import org.bukkit.event.inventory.InventoryOpenEvent;
-import org.bukkit.event.player.PlayerBucketEmptyEvent;
-import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.block.Sign;
+import org.bukkit.block.data.Directional;
 import org.bukkit.inventory.DoubleChestInventory;
-import org.bukkit.inventory.InventoryHolder;
-import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public class ChestLock extends JavaPlugin {
-    private NamespacedKey storeKey = new NamespacedKey(this, "chest_owner");
+    protected NamespacedKey ownerKey = new NamespacedKey(this, "chest_owner");
 
     public void onEnable() {
-        getServer().getPluginManager().registerEvents(new ChestLockListener(), this);
+        getServer().getPluginManager().registerEvents(new ChestInteractionListener(this), this);
     }
 
-    private Chest getLockedChest(DoubleChest dchest) {
-        Chest chestLeft = Chest.class.cast(dchest.getLeftSide());
-        Chest chestRight = Chest.class.cast(dchest.getRightSide());
+    protected static Boolean isSign(Block block) {
+        Material mat = block.getType();
 
-        if (chestRight.getPersistentDataContainer().has(storeKey, PersistentDataType.STRING)) {
-            return chestRight;
-        }
-
-        return chestLeft;
+        return mat == Material.ACACIA_WALL_SIGN
+            || mat == Material.BIRCH_WALL_SIGN
+            || mat == Material.DARK_OAK_WALL_SIGN
+            || mat == Material.JUNGLE_WALL_SIGN
+            || mat == Material.OAK_WALL_SIGN
+            || mat == Material.SPRUCE_WALL_SIGN;
     }
 
-    private void lockChest(Chest chest, Player player) {
-        if (chest.getInventory() instanceof DoubleChestInventory) {
-            DoubleChest doublechest = DoubleChest.class.cast(chest.getInventory().getHolder());
-            Chest chestLeft = Chest.class.cast(doublechest.getLeftSide());
-            Chest chestRight = Chest.class.cast(doublechest.getRightSide());
-
-            chestLeft.getPersistentDataContainer()
-                .set(storeKey, PersistentDataType.STRING, player.getUniqueId().toString());
-            chestLeft.update();
-
-            chestRight.getPersistentDataContainer()
-                .set(storeKey, PersistentDataType.STRING, player.getUniqueId().toString());
-            chestRight.update();
-            
-            return;
-        }
-
-        chest.getPersistentDataContainer()
-            .set(storeKey, PersistentDataType.STRING, player.getUniqueId().toString());
-        chest.update();
+    protected static boolean isDoubleChest(Chest chest) {
+        return chest.getInventory() instanceof DoubleChestInventory;
     }
 
-    private void unlockChest(Chest chest) {
-        if (chest.getInventory() instanceof DoubleChestInventory) {
-            DoubleChest doublechest = DoubleChest.class.cast(chest.getInventory().getHolder());
-            Chest chestLeft = Chest.class.cast(doublechest.getLeftSide());
-            Chest chestRight = Chest.class.cast(doublechest.getRightSide());
-                
-            chestLeft.getPersistentDataContainer().remove(storeKey);
-            chestLeft.update();
+    protected static Optional<Sign> getSignOfChest(Chest chest) {
+        BlockFace chestFace = Directional.class.cast(chest.getBlockData()).getFacing();
+        Block signBlock = chest.getBlock().getRelative(chestFace);
 
-            chestRight.getPersistentDataContainer().remove(storeKey);
-            chestRight.update();
-            
-            return;
+        if (!isSign(signBlock)) {
+            return Optional.empty();
         }
 
-        chest.getPersistentDataContainer().remove(storeKey);
-        chest.update();
+        return Optional.of(Sign.class.cast(signBlock.getState()));
     }
 
-    private class ChestLockListener implements Listener {
-
-        @EventHandler
-        public void onInventoryOpen(InventoryOpenEvent event) {
-            InventoryHolder holder = event.getInventory().getHolder();
-            Chest chest = null;
-
-            if (holder instanceof Chest) {
-                chest = Chest.class.cast(holder);
-            } else if (holder instanceof DoubleChest) {
-                DoubleChest doublechest = DoubleChest.class.cast(holder);
-                chest = ChestLock.this.getLockedChest(doublechest);
-            } else {
-                return;
-            }
-
-            Player player = null;
-            if (event.getPlayer() instanceof Player) {
-                player = Player.class.cast(event.getPlayer());
-            }
-
-            String owner = chest.getPersistentDataContainer().get(storeKey, PersistentDataType.STRING);
-
-            // if the chest is locked and not accessed by the owner, prevent opening
-            if (owner != null && (player == null || !owner.equals(player.getUniqueId().toString()))) {
-                event.setCancelled(true);
-
-                if (player != null) {
-                    player.sendMessage(ChatColor.YELLOW + "Questa chest è bloccata");
-                }
-
-                getLogger().info(String.format("%s tried to open locked chest (by %s) at (%d %d %d).",
-                    player.getName(),
-                    getServer().getOfflinePlayer(UUID.fromString(owner)).getName(),
-                    chest.getX(), chest.getY(), chest.getZ()));
-            }
+    protected static Optional<Chest> getChestOfSign(Sign sign) {
+        BlockFace signFace = Directional.class.cast(sign.getBlockData()).getFacing();
+        Block chestBlock = sign.getBlock().getRelative(signFace.getOppositeFace());
+        
+        if (chestBlock.getType() != Material.CHEST) {
+            return Optional.empty();
         }
 
-        @EventHandler
-        public void onPlayerInteract(PlayerInteractEvent event) {
-            if (event.getAction() != Action.LEFT_CLICK_BLOCK
-                || event.getItem() == null
-                || event.getItem().getType() != Material.STICK
-                || event.getClickedBlock().getType() != Material.CHEST
-            ) {
-                return;
-            }
-
-            Player player = event.getPlayer();
-            Chest chest = Chest.class.cast(event.getClickedBlock().getState());
-
-            if (chest.getInventory() instanceof DoubleChestInventory) {
-                DoubleChest doublechest = DoubleChest.class.cast(chest.getInventory().getHolder());
-                chest = ChestLock.this.getLockedChest(doublechest);
-            }
-
-            String owner = chest.getPersistentDataContainer().get(storeKey, PersistentDataType.STRING);
-
-            if (owner == null) {
-                lockChest(chest, player);
-                player.sendMessage(ChatColor.GREEN + "Chest bloccata");
-                return;
-            }
-
-            if (owner != null && owner.equals(player.getUniqueId().toString())) {
-                unlockChest(chest);
-                player.sendMessage(ChatColor.YELLOW + "Chest sbloccata");
-                return;
-            }
-        }
-
-        @EventHandler
-        public void onBlockBreak(BlockBreakEvent event) {
-            if (event.getBlock().getType() != Material.CHEST) {
-                return;
-            }
-
-            Player player = event.getPlayer();
-            Chest chest = Chest.class.cast(event.getBlock().getState());
-            
-            if (chest.getInventory() instanceof DoubleChestInventory) {
-                DoubleChest doublechest = DoubleChest.class.cast(chest.getInventory().getHolder());
-                chest = ChestLock.this.getLockedChest(doublechest);
-            }
-
-            String owner = chest.getPersistentDataContainer().get(storeKey, PersistentDataType.STRING);
-
-            // prevent breaking if locked, except by the owner
-            if (owner != null && !owner.equals(player.getUniqueId().toString())) {
-                event.setCancelled(true);
-                player.sendMessage(ChatColor.YELLOW + "Questa chest è bloccata");
-
-                getLogger().info(String.format("%s tried to break locked chest (by %s) at (%d %d %d).",
-                    player.getName(),
-                    getServer().getOfflinePlayer(UUID.fromString(owner)).getName(),
-                    chest.getX(), chest.getY(), chest.getZ()));
-            }
-        }
-
-        @EventHandler
-        public void onEntityExplode(EntityExplodeEvent event) {
-            List<Block> tmpBlockList = new ArrayList<>(event.blockList());
-            
-            for (Block block : tmpBlockList) {
-                if (block.getType() != Material.CHEST) {
-                    continue;
-                }
-    
-                Chest chest = Chest.class.cast(block.getState());
-                
-                if (chest.getInventory() instanceof DoubleChestInventory) {
-                    DoubleChest doublechest = DoubleChest.class.cast(chest.getInventory().getHolder());
-                    chest = ChestLock.this.getLockedChest(doublechest);
-                }
-    
-                String owner = chest.getPersistentDataContainer().get(storeKey, PersistentDataType.STRING);
-    
-                // prevent breaking if locked
-                if (owner != null) {
-                    event.blockList().remove(block);
-    
-                    getLogger().info(String.format("%s tried to explode locked chest (by %s) at (%d %d %d).",
-                        event.getEntity().getName(),
-                        getServer().getOfflinePlayer(UUID.fromString(owner)).getName(),
-                        chest.getX(), chest.getY(), chest.getZ()));
-                }
-            }
-        }
-
-        @EventHandler
-        public void onBlockPlace(BlockPlaceEvent event) {
-            Block block = event.getBlock();
-
-            if (block.getType() == Material.LAVA
-                || block.getType() == Material.TNT
-                || block.getType() == Material.TNT_MINECART
-            ) {
-                getLogger().info(String.format("%s placed %s at (%d %d %d).",
-                    event.getPlayer().getName(),
-                    block.getType().name(),
-                    block.getX(), block.getY(), block.getZ()));
-            }
-        }
-
-        @EventHandler
-        public void onPlayerBucketEmpty(PlayerBucketEmptyEvent event) {
-            Block block = event.getBlock();
-
-            if (event.getBucket() == Material.LAVA_BUCKET) {
-                getLogger().info(String.format("%s placed %s at (%d %d %d).",
-                    event.getPlayer().getName(),
-                    event.getBucket().name(),
-                    block.getX(), block.getY(), block.getZ()));
-            }
-        }
+        return Optional.of(Chest.class.cast(chestBlock.getState()));
     }
 }
